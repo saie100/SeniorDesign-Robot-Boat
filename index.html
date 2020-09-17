@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+
+  <!-- Downloaded from: https://github.com/RobotWebTools/roslibjs/blob/develop/build/roslib.js -->
+  <script type="text/javascript" src="src/roslib.js"></script>
+
+  <!-- Downloaded from: https://github.com/xeolabs/xeogl/archive/master.zip -->
+  <script src="src/xeogl-master/build/xeogl.js"></script>
+  <script src="src/xeogl-master/examples/js/geometry/vectorTextGeometry.js"></script>
+  <script src="src/xeogl-master/examples/js/models/STLModel.js"></script>
+  <script src="src/xeogl-master/examples/js/animation/cameraFollowAnimation.js"></script>
+  <script src="src/xeogl-master/examples/js/skyboxes/skybox.js"></script>
+
+  <!-- Downloaded from: https://hammerjs.github.io/dist/hammer.min.js -->
+  <script src="src/hammer.min.js"></script>
+  <!-- Downloaded from: https://github.com/chartjs/Chart.js/releases/tag/v2.9.3 -->
+  <script src="src/Chart.js-2.9.3/dist/Chart.js"></script>
+  <!-- Downloaded from: https://github.com/chartjs/chartjs-plugin-zoom/tree/v0.7.7 -->
+  <script src="src/chartjs-plugin-zoom-0.7.7/dist/chartjs-plugin-zoom.js"></script>
+  <!-- Downloaded from: https://github.com/chartjs/chartjs-plugin-datalabels/tree/v0.7.0 -->
+  <script src="src/chartjs-plugin-datalabels-0.7.0/dist/chartjs-plugin-datalabels.js"></script>
+
+  <script src="src/divTabs.js"></script>
+
+  <!-- Downloaded from: https://api.mapbox.com/mapbox-gl-js/v1.8.1/mapbox-gl.js -->
+  <script src='https://api.mapbox.com/mapbox-gl-js/v1.8.1/mapbox-gl.js'></script>
+  <!-- Downloaded from: https://api.mapbox.com/mapbox-gl-js/v1.8.1/mapbox-gl.css -->
+  <link href='https://api.mapbox.com/mapbox-gl-js/v1.8.1/mapbox-gl.css' rel='stylesheet' />
+
+  <!-- Creating Global Variables -->
+  <script type="text/javascript">
+    var scene;
+    var skybox;
+    var BoatModel;
+    var camera;
+    var followAnimation;
+
+    const zeroAxisButton = 9; // The start button on the Logitech Gamepad F310
+    const leftJoystickVert = 1; // The index of the left joystick's vertical axis
+    const rightJoystickHorz = 4; // The index of the right joystick's horizontal axis
+    var axisOffset = [0, 0, 0, 0, 0, 0];
+    var gpPollInt = 100;
+    var gpidx;
+    var controlPolling;
+    var axisZeroed = false;
+
+    var orientation_deg = [0, 0, 0]
+    var IMU_Cnt = 0;
+    var IMU_Accel_Cnt = 0;
+    var IMU_AngVel_Cnt = 0;
+    var IMU_MagVec_Cnt = 0;
+
+    var map;
+    var marker;
+    var GPS_latitude = 0;
+    var GPS_longitude = 0;
+    var GPS_altitude = 0;
+    var GPS_fix = 0;
+    var GPS_fixquality = 0;
+
+    var MAX_PLOT_IDX = 100;
+    var PLOT_UPDATE_FREQUENCY = 10; // Hz
+    var LIDAR_UPDATE_FREQUENCY = 5; // Hz
+
+    var bat_6s;
+    var bat_4s;
+    var bat_3sa;
+    var bat_3sb;
+
+    var ros;
+    var PWM_listener;
+    var BatteryListener;
+    var IMU_AbsOrientationListener;
+    var IMU_LinearAccelerationListener;
+    var IMU_AngularVelocityListener;
+    var IMU_MagnetometerListener;
+    var GPS_Coordinates;
+    var ControlMode;
+
+    var IMU_OrientationLastUpdateTime = 0;
+    var IMU_LinearAccelerationLastUpdateTime = 0;
+    var IMU_AngularVelocityLastUpdateTime = 0;
+    var IMU_MagnetometerLastUpdateTime = 0;
+    var LIDAR_LastUpdateTime = 0;
+
+    var zeroMotor = new ROSLIB.Message({
+        linear : {
+                x : 0,
+                y : 0,
+                z : 0
+            },
+        angular : {
+                x : 0,
+                y : 0,
+                z : 0
+            }
+    });
+
+  </script>
+
+  <script src="src/ros_setup.js"></script>
+
+</head>
+
+<body onload="updateFields()">
+  <h1>Temple University RoboBoat - Control Interface</h1>
+  <div class="row">
+    <div class="column" style="background-color:#aaa;">
+      <div class="columnHeader">
+        ROS Status
+      </div>
+      <br>
+      <table>
+        <tr>
+          <th class="left">Rosbridge Status</th>
+          <td><span id="rosConnStatus"></span></td>
+        </tr>
+      </table>
+      <div class="columnHeader">
+        Control Mode
+      </div>
+      <table>
+        <tr>
+          <th class="left">Control Mode</th>
+          <td>
+            <div class="onoffswitch">
+              <input type="checkbox" name="onoffswitch" class="onoffswitch-checkbox" id="controlCheck" onclick="updateControlMode();" checked>
+              <label class="onoffswitch-label" for="controlCheck">
+                <span class="onoffswitch-inner"></span>
+                <span class="onoffswitch-switch"></span>
+              </label>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <th class="left">Course Select</th>
+          <td>
+            <form action=" ">
+              <select id="AutonomousCourseSelection" name="AutonomousCourse">
+                <option value="1">Navigation Channel</option>
+                <option value="2">Speed Gate</option>
+                <option value="3">Winding Navigation Channel</option>
+                <option value="4">Obstacle Field</option>
+                <option value="5">Acoustic Docking</option>
+                <option value="6">Package Delivery</option>
+              </select>
+            </form>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <div class="column" height="115px" style="background-color:#bbb; min-width: 0; min-height: 0;">
+      <div class="columnHeader">Controller Input<span id="gamepad_connection"></span></div>
+      <canvas id="Chart_Controller" height="110vw"></canvas>
+      <table>
+        <tr>
+          <th class="thin">Left Joystick Reading</th>
+          <th class="thin">Right Joystick Reading</th>
+        </tr>
+        <tr>
+          <td class="thin"><span id="lJoystickVal"></span></td>
+          <td class="thin"><span id="rJoystickVal"></span></td>
+        </tr>
+      </table>
+    </div>
+    <div class="column" height="115px" style="background-color:#ccc; min-width: 0; min-height: 0;">
+      <div class="columnHeader">Battery Charge</div>
+      <canvas id="Chart_Battery"></canvas>
+    </div>
+  </div>
+  <div class="row">
+    <div class="column" style="background-color:#eee; -webkit-flex: 3; min-width: 0; min-height: 0">
+      <div class="columnHeader">ZED Camera Stream</div>
+      <br>
+      <div id="ZED_Raw">
+        <img style="max-width: 100%; height: auto; margin: auto;" src="http://10.19.122.102:8080/stream?topic=/zed/zed_node/stereo_raw/image_raw_color">
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="column" style="background-color:#eee;">
+      <div class="columnHeader">LIDAR Data</div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="column" style="background-color:#aaa; min-width: 0; min-height: 0;">
+      <div class="columnHeader">LIDAR Info</div>
+      <br>
+      <table>
+        <tr>
+          <th class="left">Last Measured Time</th>
+          <td class="right"><span id="LIDAR_last_measured_Time"></span></td>
+        </tr>
+        <tr>
+          <th class="left">Minimum Displayed Range</th>
+          <td class="right"><span id="LIDAR_range_min"></span> [m]</td>
+        </tr>
+        <tr>
+          <th class="left">Maximum Displayed Range</th>
+          <td class="right"><span id="LIDAR_range_max"></span> [m]</td>
+        </tr>
+        <tr>
+          <th class="left">Time Between Point Measurements</th>
+          <td class="right"><span id="LIDAR_time_increment"></span> [ms]</td>
+        </tr>
+        <tr>
+          <th class="left">Time Between Complete Scans</th>
+          <td class="right"><span id="LIDAR_scan_time"></span> [ms]</td>
+        </tr>
+      </table>
+      <table>
+        <tr>
+          <td class="thin"><button class="button button1" style="font-size: 13px; font-weight: bold;" onclick="Chart_LIDAR.resetZoom();">Reset Pan/Zoom</button></td>
+          <td class="thin" style="font-size: 14px; font-weight: bold;">
+            LIDAR Update Rate: <span id="LIDAR_SliderDisplay"></span>Hz<br>
+            <input type="range" min="1" max="15" value="5" id="LIDAR_Slider" style="width: 100%;" oninput="LIDAR_UPDATE_FREQUENCY = parseInt(this.value,10); document.getElementById('LIDAR_SliderDisplay').innerHTML = LIDAR_UPDATE_FREQUENCY">
+          </td>
+        </tr>
+      </table>
+
+    </div>
+    <div class="column" style="background-color:#bbb; -webkit-flex: 3; min-width: 0; min-height: 0;">
+      <canvas id="Chart_LIDAR" height="110vw"></canvas>
+    </div>
+  </div>
+  <div class="row">
+    <div class="column" style="background-color:#eee;">
+      <div class="columnHeader">IMU Data</div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="column" width="25vw" style="background-color:#aaa; align-items: center; justify-content: center;">
+      <canvas id="myCanvas" style="position:relative;top: 0px; left: 0px;  width: 25vw; height: 28vw;"></canvas>
+      <table>
+        <tr>
+          <td class="thin" style="font-size: 14px; font-weight: bold; padding: 0px; border-bottom: 0px;">
+            IMU Update Rate: <span id="IMU_SliderDisplay"></span>Hz<br>
+            <input type="range" min="1" max="100" value="5" id="IMU_Slider" style="width: 100%;" oninput="PLOT_UPDATE_FREQUENCY = parseInt(this.value,10); document.getElementById('IMU_SliderDisplay').innerHTML = PLOT_UPDATE_FREQUENCY">
+          </td>
+        </tr>
+      </table>
+    </div>
+    <div class="column" style="background-color:#bbb; -webkit-flex: 3; min-width: 0; min-height: 0">
+      <!-- Tab links -->
+      <div class="tab">
+        <button class="tablinks" onclick="openCity(event, 'Tab_IMU_OrientationDeg')" id="Tab_Default_IMU">Orientation</button>
+        <button class="tablinks" onclick="openCity(event, 'Tab_IMU_Accel')">Linear Acceleration</button>
+        <button class="tablinks" onclick="openCity(event, 'Tab_IMU_AngVel')">Angular Velocity</button>
+        <button class="tablinks" onclick="openCity(event, 'Tab_IMU_Magnetometer')">Vector Magnetometer</button>
+      </div>
+      <!-- Tab content -->
+      <div id="Tab_IMU_OrientationDeg" class="tabcontent">
+        <canvas id="Chart_OrientationDeg" height="115vw"></canvas>
+      </div>
+
+      <div id="Tab_IMU_Accel" class="tabcontent">
+        <canvas id="Chart_Acceleration" height="115vw"></canvas>
+      </div>
+
+      <div id="Tab_IMU_AngVel" class="tabcontent">
+        <canvas id="Chart_AngVel" height="115vw"></canvas>
+      </div>
+
+      <div id="Tab_IMU_Magnetometer" class="tabcontent">
+        <canvas id="Chart_Magnetometer" height="115vw"></canvas>
+      </div>
+
+    </div>
+  </div>
+  <div class="row">
+    <div class="column" style="background-color:#eee;">
+      <div class="columnHeader">GPS Data</div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="column" style="background-color:#aaa; align-items: center; justify-content: center;">
+      <div class="columnHeader">
+        GPS Topic Data
+      </div>
+      <br><br><br>
+      <table>
+        <tr>
+          <th class="left">GPS Fix</th>
+          <td class="right"><span id="GPS_fix"></span></td>
+        </tr>
+        <tr>
+          <th class="left">Fix Quality</th>
+          <td class="right"><span id="GPS_fixquality"></span></td>
+        </tr>
+        <tr>
+          <th class="left">Latitude</th>
+          <td class="right"><span id="GPS_latitude"></span> [deg]</td>
+        </tr>
+        <tr>
+          <th class="left">Longitude</th>
+          <td class="right"><span id="GPS_longitude"></span> [deg]</td>
+        </tr>
+        <tr>
+          <th class="left">Altitude</th>
+          <td class="right"><span id="GPS_altitude"></span> [ft]</td>
+        </tr>
+      </table>
+    </div>
+    <div class="column" style="background-color:#bbb; -webkit-flex: 2">
+      <div class="columnHeader">
+        Map
+      </div>
+      <div id="map" style="height: 25vw;"></div>
+    </div>
+  </div>
+  <script>
+    function updateFields() {
+      document.getElementById('LIDAR_SliderDisplay').innerHTML = LIDAR_UPDATE_FREQUENCY;
+      document.getElementById('IMU_SliderDisplay').innerHTML = PLOT_UPDATE_FREQUENCY;
+      document.getElementById("Tab_Default_IMU").click();
+    }
+  </script>
+
+</body>
+
+<script src="src/OrientationAnimation.js"></script>
+<script src="src/chart_create.js"></script>
+<script src="src/chart_update.js"></script>
+<script src="src/mapbox_setup.js"></script>
+<script src="src/ros_handlers.js"></script>
+<script src="src/gamepad_control.js"></script>
+
+<link rel="stylesheet" type="text/css" href="main.css"/>
+
+</html>
