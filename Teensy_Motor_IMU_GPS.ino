@@ -68,8 +68,8 @@ else if(linear > 0  && angular == 0) //turn forward or backwards depends on the 
 
  
 }
-
-ros::Subscriber<geometry_msgs::Twist> Motor_ESC("/cmd_vel", &ESC_Change);
+/*                                  I changed the topic name from "/cmd_vel" to "cmd_vel"                                                               */
+ros::Subscriber<geometry_msgs::Twist> sub_to_cmd_vel("cmd_vel", &ESC_Change);
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ IMU  Setup ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -151,7 +151,7 @@ void setup() {
   nh.initNode();
   nh.getHardware()->setBaud(57600);
 
-  nh.subscribe(Motor_ESC);
+  nh.subscribe(sub_to_cmd_vel);
 
   nh.advertise(IMU_eulerOrientation);
   nh.advertise(IMU_angularVelocity);
