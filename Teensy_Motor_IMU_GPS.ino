@@ -25,11 +25,11 @@ ros::NodeHandle nh;
 unsigned long motor_update = millis();
 
 //Callback function for updating the both ESC
-/*Since we are controlling both motors using the Geometry Twist message 
-We need to both motors to behave sychronously to either move forward/backwards or turn left/right*/
+/*Since we are controlling both motors using the Geometry Twist messages
+We need to both motors to behave sychronously to either move forward/backwards or to turn left/right*/
 void ESC_Change( const geometry_msgs::Twist& msg) {
   //float scalingFactor = 1;
-  float linear = msg.linear.x; 
+  float linear = msg.linear.x;
   float angular = msg.angular.y;
 /*We can not go forward/backwards while turning left/right
 Only one of the four options can be selected at a time
@@ -38,15 +38,15 @@ moving forward/backwards has the nent priority*/
 if(linear !=0 && angular != 0) //if both joysticks are moving do nothing
 {
   motor_update = millis(); // Record the time that the motor was updated
-  return;
+ 
   }
-  
+ 
 else if(angular > 0  && linear == 0) //turn right
 {
   analogWrite(L_ESC, (unsigned short)(STOP_PWM + RANGEPWM * 0));
   analogWrite(R_ESC, (unsigned short)(STOP_PWM + RANGEPWM * angular));
   motor_update = millis(); // Record the time that the motor was updated
-  return;
+ 
   }
 
  else if(angular < 0  && linear == 0) //turn left
@@ -54,22 +54,22 @@ else if(angular > 0  && linear == 0) //turn right
   analogWrite(L_ESC, (unsigned short)(STOP_PWM + RANGEPWM * angular));
   analogWrite(R_ESC, (unsigned short)(STOP_PWM + RANGEPWM * 0));
   motor_update = millis(); // Record the time that the motor was updated
-  return;
+ 
   }
 
 
-else if(linear > 0  && angualr == 0) //turn forward or backwards depends on the value for linear. Values are between [-1 1]
+else if(linear > 0  && angular == 0) //turn forward or backwards depends on the value for linear. Values are between [-1 1]
 {
   analogWrite(L_ESC, (unsigned short)(STOP_PWM + RANGEPWM * linear));
   analogWrite(R_ESC, (unsigned short)(STOP_PWM + RANGEPWM * linear));
   motor_update = millis(); // Record the time that the motor was updated
-  return;
+ 
   }  
 
-  return;
+ 
 }
 
-ros::Subscriber<geometry_msgs/Twist> Motor_ESC("/cmd_vel", ESC_Change);
+ros::Subscriber<geometry_msgs::Twist> Motor_ESC("/cmd_vel", &ESC_Change);
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ IMU  Setup ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -194,30 +194,30 @@ void loop() {
     publish_gps_time = millis();
   }
 
-  
+ 
   nh.spinOnce(); // Ensure remains connected to Ros_Serial Server
 
-  if(millis() - motor_update > MIN_UPDATE_RATE){ // Stop the motors if they haven't been updated in 1 second 
+  if(millis() - motor_update > MIN_UPDATE_RATE){ // Stop the motors if they haven't been updated in 1 second
     analogWrite(R_ESC, (unsigned short)(STOP_PWM));
     analogWrite(L_ESC, (unsigned short)(STOP_PWM));
   }
-  
+ 
 }
 
 void updateIMU(void) {
   sensors_event_t oData , aData , lData, event;
-  
+ 
   bno.getEvent(&oData, Adafruit_BNO055::VECTOR_EULER);
   IMU_eulerOrientationMsg.header.stamp = nh.now();
-  
+ 
   bno.getEvent(&aData, Adafruit_BNO055::VECTOR_GYROSCOPE);
   IMU_angularVelocityMsg.header.stamp = nh.now();
-  
+ 
   bno.getEvent(&lData, Adafruit_BNO055::VECTOR_LINEARACCEL);
   IMU_linearAccelerationMsg.header.stamp = nh.now();
-  
+ 
   // Get absolute orientation
-  bno.getEvent(&event); 
+  bno.getEvent(&event);
   IMU_absoluteOrientationMsg.header.stamp = nh.now();
 
   imu::Vector<3> magnet = bno.getVector(Adafruit_BNO055::VECTOR_MAGNETOMETER);
@@ -247,7 +247,7 @@ void updateIMU(void) {
   IMU_magVecMsg.vector.x = magnet.x(); // uT
   IMU_magVecMsg.vector.y = magnet.y(); // uT
   IMU_magVecMsg.vector.z = magnet.z(); // uT
-  
+ 
 
   //Publishing the orientation, angular velocity, and linear acceleration Vectors
   IMU_eulerOrientation.publish(&IMU_eulerOrientationMsg);

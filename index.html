@@ -41,9 +41,9 @@
     var followAnimation;
 
     const zeroAxisButton = 9; // The start button on the Logitech Gamepad F310
-    const leftJoystickVert = 1; // The index of the left joystick's vertical axis
-    const rightJoystickHorz = 4; // The index of the right joystick's horizontal axis
-    var axisOffset = [0, 0, 0, 0, 0, 0];
+    const leftJoystickVert = 1; // The index of the left joystick's vertical axis (+1 --> moves backwards / -1 --> moves forward)
+    const rightJoystickHorz = 2; // The index of the right joystick's horizontal axis (+1 --> moves right / -1 --> moves left)
+    var axisOffset = [0, 0, 0, 0];
     var gpPollInt = 100;
     var gpidx;
     var controlPolling;
