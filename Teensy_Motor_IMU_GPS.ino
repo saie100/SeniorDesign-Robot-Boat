@@ -30,7 +30,7 @@ We need to both motors to behave sychronously to either move forward/backwards o
 void ESC_Change( const geometry_msgs::Twist& msg) {
   //float scalingFactor = 1;
   float linear = msg.linear.x;
-  float angular = msg.angular.y;
+  float angular = msg.angular.z;
 /*We can not go forward/backwards while turning left/right
 Only one of the four options can be selected at a time
 turning left/right has highest priority
