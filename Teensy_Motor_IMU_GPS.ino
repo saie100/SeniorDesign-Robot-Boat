@@ -28,13 +28,24 @@ unsigned long motor_update = millis();
 /*Since we are controlling both motors using the Geometry Twist messages
 We need to both motors to behave sychronously to either move forward/backwards or to turn left/right*/
 void ESC_Change( const geometry_msgs::Twist& msg) {
-  //float scalingFactor = 1;
+
   float linear = msg.linear.x;
   float angular = msg.angular.z;
+
+float L = .5;  //Distance between the two propeller in meters 
+float R = .01; // Radius of the propeller in meters;
+
+/*
+This is the kinematic equation for the right and left wheel 
+Given we know the distance (L) between the two wheel and the radius (R) of the wheel
+We need to convert this equation for wheel veloicty into an equation for propulsion velocity
+*/ 
+  float leftV = 2*linear - angular*L/(2*R);
+  float rightV = 2*linear - angular*L/(2*R);
 /*We can not go forward/backwards while turning left/right
 Only one of the four options can be selected at a time
 turning left/right has highest priority
-moving forward/backwards has the nent priority*/
+moving forward/backwards has the next priority*/
 if(linear !=0 && angular != 0) //if both joysticks are moving do nothing
 {
   motor_update = millis(); // Record the time that the motor was updated
