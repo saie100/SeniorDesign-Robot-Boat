@@ -41,7 +41,7 @@ Given we know the distance (L) between the two wheel and the radius (R) of the w
 We need to convert this equation for wheel veloicty into an equation for propulsion velocity
 */ 
   float leftV = 2*linear - angular*L/(2*R);
-  float rightV = 2*linear - angular*L/(2*R);
+  float rightV = 2*linear + angular*L/(2*R);
 /*We can not go forward/backwards while turning left/right
 Only one of the four options can be selected at a time
 turning left/right has highest priority
