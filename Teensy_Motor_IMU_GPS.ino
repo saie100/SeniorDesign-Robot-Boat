@@ -7,7 +7,7 @@
 #include <Adafruit_BNO055.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_GPS.h>
-
+#include <math.h>
 #define UPDATE_RATE 50
 
 ros::NodeHandle nh;
@@ -16,6 +16,7 @@ ros::NodeHandle nh;
 
 #define L_ESC 5 //Teensy pin for the left motor's ESC
 #define R_ESC 6 //Teensy pin for the right motor's ES
+
 
 #define STOP_PWM 4915
 #define RANGEPWM 1311
@@ -28,59 +29,99 @@ unsigned long motor_update = millis();
 /*Since we are controlling both motors using the Geometry Twist messages
 We need to both motors to behave sychronously to either move forward/backwards or to turn left/right*/
 void ESC_Change( const geometry_msgs::Twist& msg) {
-
+  //float scalingFactor = 1;
   float linear = msg.linear.x;
   float angular = msg.angular.z;
+  
 
-float L = .5;  //Distance between the two propeller in meters 
-float R = .01; // Radius of the propeller in meters;
+ if(linear == 0 && angular == 0)
+    {
+      analogWrite(L_ESC, (unsigned short)(STOP_PWM + RANGEPWM * 0));
+      analogWrite(R_ESC, (unsigned short)(STOP_PWM + RANGEPWM * 0));
+      motor_update = millis(); // Record the time that the motor was updated
+      return;
+    }
+
+ // First Compute the angle in deg
+  // First hypotenuse
+   double z = sqrt(linear * linear + angular * angular);
+
+  // angle in radians
+  float rad = acos(fabs(linear) / z);
+
+  // and in degrees
+  float ang = rad * 180 /PI;
+
+  /*Now angle indicates the measure of turn
+  Along a straight line, with an angle o, the turn co-efficient is same
+  this applies for angles between 0-90, with angle 0 the coeff is -1
+  with angle 45, the co-efficient is 0 and with angle 90, it is 1
+  */
+  
+  float tcoeff = -1 + (ang / 90) * 2;
+  float turn = tcoeff * fabs(fabs(angular) - fabs(linear));
+  turn = round(turn * 100) / 100;
+
+  // And max of y or x is the movement
+  float mov = max(fabs(angular), fabs(linear));
+     
+     float rawLeft = 0;
+     float rawRight = 0;
+
+  // First and third quadrant
+  if( (linear >= 0 && angular >= 0) || (linear < 0 && angular < 0) ){
+     rawLeft = mov;
+     rawRight = turn;
+  }
+  else{
+     rawRight = mov;
+     rawLeft = turn;
+  }
+  //Reverse polarity
+  if (angular < 0){
+    rawLeft = 0 - rawLeft;
+    rawRight = 0 - rawRight;
+  }
+  // minJoystick, maxJoystick, minSpeed, maxSpeed
+  // Map the values onto the defined rang
+           //     rawRight, minJoystick, maxJoystick, minSpeed, maxSpeed
+  float rightOut = map(rawRight, -1, 1, 0, 1);
+  float leftOut = map(rawLeft, -1, 1, 0, 1);
+
+  analogWrite(L_ESC, (unsigned short)(STOP_PWM + RANGEPWM * leftOut));
+  analogWrite(R_ESC, (unsigned short)(STOP_PWM + RANGEPWM * rightOut));
+  motor_update = millis(); // Record the time that the motor was updated
+  return;
 
 /*
+
+float L = .5;  //Distance between the two propeller in meters 
+float R = .01; // Radius of the imaginery wheel (propeller) in meters;
+
+
 This is the kinematic equation for the right and left wheel 
 Given we know the distance (L) between the two wheel and the radius (R) of the wheel
 We need to convert this equation for wheel veloicty into an equation for propulsion velocity
-*/ 
-  float leftV = 2*linear - angular*L/(2*R);
-  float rightV = 2*linear + angular*L/(2*R);
-/*We can not go forward/backwards while turning left/right
-Only one of the four options can be selected at a time
-turning left/right has highest priority
-moving forward/backwards has the next priority*/
-if(linear !=0 && angular != 0) //if both joysticks are moving do nothing
-{
-  motor_update = millis(); // Record the time that the motor was updated
- 
-  }
- 
-else if(angular > 0  && linear == 0) //turn right
-{
-  analogWrite(L_ESC, (unsigned short)(STOP_PWM + RANGEPWM * 0));
-  analogWrite(R_ESC, (unsigned short)(STOP_PWM + RANGEPWM * angular));
-  motor_update = millis(); // Record the time that the motor was updated
- 
-  }
 
- else if(angular < 0  && linear == 0) //turn left
-{
-  analogWrite(L_ESC, (unsigned short)(STOP_PWM + RANGEPWM * angular));
-  analogWrite(R_ESC, (unsigned short)(STOP_PWM + RANGEPWM * 0));
-  motor_update = millis(); // Record the time that the motor was updated
- 
-  }
+  float leftV = (2*linear - angular*L) / (2*R);
+  float rightV = (2*linear + angular*L) / (2*R);
 
 
-else if(linear > 0  && angular == 0) //turn forward or backwards depends on the value for linear. Values are between [-1 1]
-{
-  analogWrite(L_ESC, (unsigned short)(STOP_PWM + RANGEPWM * linear));
-  analogWrite(R_ESC, (unsigned short)(STOP_PWM + RANGEPWM * linear));
-  motor_update = millis(); // Record the time that the motor was updated
- 
-  }  
+// Maps leftV and rightV into values between 1 and -1
+if(linear > 0)
+float mappedL = map(leftV, (2*linear - angular*L) / (2*R) )
+float mappedL = map(leftV, (2*linear - angular*L) / (2*R) )
 
- 
+  analogWrite(L_ESC, (unsigned short)(STOP_PWM + RANGEPWM * mappedL));
+  analogWrite(R_ESC, (unsigned short)(STOP_PWM + RANGEPWM * mappedR));
+  motor_update = millis(); // Record the time that the motor was updated
+*/
 }
-/*                                  I changed the topic name from "/cmd_vel" to "cmd_vel"                                                               */
-ros::Subscriber<geometry_msgs::Twist> sub_to_cmd_vel("cmd_vel", &ESC_Change);
+
+
+
+                                                            
+ros::Subscriber<geometry_msgs::Twist> sub_to_cmd_vel("/cmd_vel", &ESC_Change);
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ IMU  Setup ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
