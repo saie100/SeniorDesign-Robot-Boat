@@ -42,6 +42,7 @@ void ESC_Change( const geometry_msgs::Twist& msg) {
       return;
     }
 
+/*
  // First Compute the angle in deg
   // First hypotenuse
    double z = sqrt(linear * linear + angular * angular);
@@ -57,6 +58,7 @@ void ESC_Change( const geometry_msgs::Twist& msg) {
   this applies for angles between 0-90, with angle 0 the coeff is -1
   with angle 45, the co-efficient is 0 and with angle 90, it is 1
   */
+  /*
   
   float tcoeff = -1 + (ang / 90) * 2;
   float turn = tcoeff * fabs(fabs(angular) - fabs(linear));
@@ -93,29 +95,31 @@ void ESC_Change( const geometry_msgs::Twist& msg) {
   motor_update = millis(); // Record the time that the motor was updated
   return;
 
-/*
+ */
 
 float L = .5;  //Distance between the two propeller in meters 
 float R = .01; // Radius of the imaginery wheel (propeller) in meters;
 
-
-This is the kinematic equation for the right and left wheel 
+/*
+This is the kinematic equation for the right and left wheel velocity
 Given we know the distance (L) between the two wheel and the radius (R) of the wheel
-We need to convert this equation for wheel veloicty into an equation for propulsion velocity
-
+We need to convert this equation from wheel veloicty into an equation for propulsion velocity
+*/
   float leftV = (2*linear - angular*L) / (2*R);
   float rightV = (2*linear + angular*L) / (2*R);
 
 
 // Maps leftV and rightV into values between 1 and -1
-if(linear > 0)
-float mappedL = map(leftV, (2*linear - angular*L) / (2*R) )
-float mappedL = map(leftV, (2*linear - angular*L) / (2*R) )
+                    //x              min x value,        min x value          min, max
+float mappedL = map(leftV, (2*(-1) - (1)*L) / (2*R),  (2*(1) + (1)*L) / (2*R) , -1, 1);
+                    //y              min y value,        min y value          min, max
+float mappedR = map(rightV, (2*(-1) - (1)*L) / (2*R),  (2*(1) + (1)*L) / (2*R) , -1, 1);
 
   analogWrite(L_ESC, (unsigned short)(STOP_PWM + RANGEPWM * mappedL));
   analogWrite(R_ESC, (unsigned short)(STOP_PWM + RANGEPWM * mappedR));
   motor_update = millis(); // Record the time that the motor was updated
-*/
+  return;
+
 }
 
 
